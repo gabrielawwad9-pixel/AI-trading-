@@ -11,6 +11,7 @@
 #
 #   Trading:  jarvis portfolio | positions | cash | market | quote AAPL | buy 5 AAPL | sell all TSLA
 #             jarvis watch [add|remove SYM] | alerts | alert TSLA above 300 | dashboard | trades
+#             jarvis backtest | strategy [use KEY] | autotrade (paper) | schedule | unschedule
 #             jarvis connect (link Robinhood) | login | mode | paper reset          (full list: jarvis trade-help)
 
 # Follow the symlink back to the real JARVIS folder.
@@ -41,9 +42,9 @@ case "$1" in
   memory)         if [ -f memory.json ]; then cat memory.json; else echo "JARVIS doesn't remember anything yet."; fi ;;
   personality)    exec "$EDITOR_CMD" personality.txt ;;
   settings|env)   exec "$EDITOR_CMD" .env ;;
-  quote|price|quotes|portfolio|account|summary|positions|holdings|cash|buying-power|bp|market|buy|sell|orders|watch|watchlist|alert|alerts|dashboard|dash|ticker|trades|history|log|login|connect|link|mode|paper)
+  quote|price|quotes|portfolio|account|summary|positions|holdings|cash|buying-power|bp|market|buy|sell|orders|watch|watchlist|alert|alerts|dashboard|dash|ticker|trades|history|log|login|connect|link|mode|paper|backtest|strategy|strategies|autotrade|schedule|unschedule)
                   exec "$PY" trade.py "$@" ;;
   trade-help)     exec "$PY" trade.py help ;;
-  help|-h|--help) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//' ;;
+  help|-h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//' ;;
   *)              exec "$PY" jarvis.py "$@" ;;
 esac

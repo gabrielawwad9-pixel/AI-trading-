@@ -9,3 +9,5 @@ paper_account.json
 trading_state.json
 trade_log.jsonl
 *.tmp
+data/
+autotrade.log

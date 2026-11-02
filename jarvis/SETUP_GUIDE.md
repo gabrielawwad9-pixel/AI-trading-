@@ -404,6 +404,45 @@ Safety rules that are always on in live mode:
 
 ---
 
+## Step 9: Backtest strategies, then paper-trade them automatically
+
+### 1. Backtest: see how strategies did on 15+ years of real prices
+
+```bash
+jarvis backtest                 # starting with $100, from 2011 to today
+jarvis backtest --years         # plus a year-by-year table
+jarvis backtest --capital 15000 --start 2015-01-01
+```
+
+It compares buy-and-hold SPY (the S&P 500) and QQQ (the Nasdaq) with aggressive strategies: TQQQ
+(3x Nasdaq), SOXL (3x semiconductors), trend filters, and a weekly momentum rotation. For each one it
+shows the ending value, the yearly and weekly averages, the **worst drop**, the worst week, and how
+often a week was up or down 5% or more. Prices come from Yahoo Finance, adjusted for splits and dividends,
+with trading costs included. The backtester never lets a strategy use tomorrow's prices.
+
+### 2. Paper-trade it automatically
+
+```bash
+jarvis strategy                 # what each strategy would hold today
+jarvis strategy use trend_tqqq  # choose one (or momentum, hold_tqqq, ...)
+jarvis autotrade                # rebalance the paper account to that strategy right now
+jarvis schedule 16:15           # do it automatically every weekday at 4:15 PM (Windows Task Scheduler)
+jarvis portfolio                # check how it's doing; jarvis trades shows every trade
+jarvis unschedule               # stop it
+```
+
+Set `PAPER_STARTING_CASH=100` in `.env` and run `jarvis paper reset` if you want the paper account to
+match the $100 you plan to use for real. The scheduled task only runs while the laptop is on and you're
+logged in. Autotrade **only trades the paper account** in this version.
+
+### Other places to paper trade
+
+Robinhood itself doesn't offer paper trading. Free alternatives, if you want a second opinion:
+**Webull** (paper trading in the app), **thinkorswim paperMoney** (Schwab), **TradingView** (paper
+trading panel), and **Alpaca** (a paper-trading account with an API, the most common choice for bots).
+
+---
+
 ## Privacy: what stays on your laptop?
 
 | Part | Where it runs |

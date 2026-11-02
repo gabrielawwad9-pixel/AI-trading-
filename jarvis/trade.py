@@ -12,6 +12,13 @@
     jarvis alerts                     list price alerts     (jarvis alert TSLA above 300 / jarvis alerts cancel)
     jarvis dashboard                  live-updating screen of your portfolio + watchlist (Ctrl+C to stop)
     jarvis trades                     history of orders JARVIS has placed
+    jarvis backtest                   test the strategies on 15+ years of real prices (--capital 100 --start 2011)
+    jarvis backtest --years           ...plus a year-by-year table
+    jarvis strategy                   list strategies and what each one would hold today
+    jarvis strategy use KEY           choose the strategy for autotrade (e.g. jarvis strategy use momentum)
+    jarvis autotrade                  rebalance the PAPER account to the chosen strategy (run once a day)
+    jarvis schedule [16:15]           run autotrade every weekday at that time (Windows Task Scheduler)
+    jarvis unschedule                 stop the daily autotrade
     jarvis connect                    link your Robinhood account (asks for your login, saves it, logs in)
     jarvis login                      log in to Robinhood again (approve on your phone if asked)
     jarvis mode                       paper or live?
@@ -20,6 +27,7 @@
 
 import argparse
 import json
+import re
 import sys
 import time
 
@@ -107,6 +115,125 @@ def connect(cfg):
     return 0
 
 
+def _price_cache():
+    from jarvis_core.config import ROOT
+    return ROOT / "data" / "prices"
+
+
+def backtest_cmd(capital, start, show_years, refresh=False):
+    from jarvis_core import backtest as bt
+    strategies = bt.all_strategies()
+    symbols = sorted({c for st in strategies for c in st.symbols})
+    print(f"Downloading daily prices for {', '.join(symbols)} (cached after the first run)...")
+    px = bt.load_prices(symbols, start=start, cache_dir=_price_cache(), refresh=refresh)
+    results = bt.run_all(strategies, px, capital=capital, start=start)
+    print()
+    print(bt.report(results, capital))
+    if show_years:
+        print()
+        print(bt.year_table(results))
+    print("\nStrategy keys (for 'jarvis strategy use KEY'): " + ", ".join(st.key for st in strategies))
+    return 0
+
+
+def strategy_cmd(desk, words):
+    from jarvis_core import backtest as bt
+    if len(words) >= 2 and words[0] == "use":
+        try:
+            st = bt.get_strategy(words[1])
+        except KeyError:
+            print("Unknown strategy. Options: " + ", ".join(x.key for x in bt.all_strategies()))
+            return 1
+        desk.state["strategy"] = st.key
+        desk._save_state()
+        print(f"Autotrade will now follow: {st.name} ({st.risk} risk)\n  {st.description}")
+        return 0
+    chosen = desk.state.get("strategy")
+    strategies = bt.all_strategies()
+    px = bt.load_prices({c for st in strategies for c in st.symbols}, cache_dir=_price_cache())
+    print(f"Prices as of {px.index[-1]:%a %d %b %Y}\n")
+    for st in strategies:
+        t = bt.todays_targets(st, px)
+        hold = ", ".join(f"{int(v * 100)}% {k}" for k, v in t.items()) or "100% cash"
+        mark = "  <-- autotrade" if st.key == chosen else ""
+        print(f"[{st.key}] {st.name} - {st.risk} risk{mark}\n    wants to hold: {hold}\n    {st.description}\n")
+    if not chosen:
+        print("Pick one with:  jarvis strategy use KEY")
+    return 0
+
+
+def autotrade_cmd(desk):
+    """Rebalance the paper account to the chosen strategy's target. Paper only."""
+    from jarvis_core import backtest as bt
+    from jarvis_core.trading import Order, money
+    if desk.broker.live:
+        print("Autotrade only runs on the PAPER account in this version. Set TRADING_MODE=paper to use it.")
+        print("(Real-money automation comes after the strategy has proven itself on paper.)")
+        return 1
+    key = desk.state.get("strategy")
+    if not key:
+        print("No strategy chosen yet. See them with  jarvis strategy  and pick one with  jarvis strategy use KEY")
+        return 1
+    st = bt.get_strategy(key)
+    px = bt.load_prices(st.symbols, cache_dir=_price_cache(), refresh=True)
+    targets = bt.todays_targets(st, px)
+    snap = desk.broker.snapshot()
+    total = snap.total
+    have = {p.symbol: p for p in snap.positions}
+    print(f"{st.name}: target = " + (", ".join(f"{int(v * 100)}% {k}" for k, v in targets.items()) or "100% cash")
+          + f"   (paper account {money(total)})")
+    # sells first (frees cash), then buys
+    actions = []
+    for sym, pos in have.items():
+        want = targets.get(sym, 0.0) * total
+        if pos.value - want > max(1.0, 0.02 * total):
+            qty = pos.quantity if want < 1 else round((pos.value - want) / pos.price, 6)
+            actions.append(Order("sell", sym, quantity=qty, est_price=pos.price))
+    for sym, wt in targets.items():
+        cur = have[sym].value if sym in have else 0.0
+        diff = wt * total - cur
+        if diff > max(1.0, 0.02 * total):
+            actions.append(Order("buy", sym, dollars=round(diff * 0.995, 2)))   # small buffer for price moves
+    if not actions:
+        print("Already on target - nothing to do.")
+        return 0
+    for order in actions:
+        result = desk.broker.place(order)
+        desk._log_trade(order, result)
+        print("  " + result)
+    print(f"Paper account now: {money(desk.broker.snapshot().total)}")
+    return 0
+
+
+TASK_NAME = "JARVIS paper autotrade"
+
+
+def schedule_cmd(when="16:15", remove=False):
+    import subprocess
+    from jarvis_core.config import ROOT
+    if not sys.platform.startswith("win"):
+        print("Automatic scheduling uses Windows Task Scheduler. On Mac/Linux add this to 'crontab -e':")
+        print(f"  15 16 * * 1-5 cd {ROOT} && {sys.executable} trade.py autotrade >> autotrade.log 2>&1")
+        return 1
+    if remove:
+        r = subprocess.run(["schtasks", "/Delete", "/TN", TASK_NAME, "/F"], capture_output=True, text=True)
+        print("Daily autotrade stopped." if r.returncode == 0 else f"Couldn't remove it: {r.stderr.strip()}")
+        return r.returncode
+    if not re.fullmatch(r"\d{1,2}:\d{2}", when):
+        print("Give the time as HH:MM in 24-hour format, e.g.  jarvis schedule 16:15")
+        return 1
+    log = ROOT / "autotrade.log"
+    action = f'cmd /c cd /d "{ROOT}" && "{sys.executable}" trade.py autotrade >> "{log}" 2>&1'
+    r = subprocess.run(["schtasks", "/Create", "/F", "/SC", "WEEKLY", "/D", "MON,TUE,WED,THU,FRI",
+                        "/TN", TASK_NAME, "/TR", action, "/ST", when.zfill(5)], capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f"Windows refused to create the task: {r.stderr.strip() or r.stdout.strip()}")
+        return 1
+    print(f"[OK] Paper autotrade will run every weekday at {when} (your laptop's time) while you're logged in.")
+    print(f"     Results are written to {log} and 'jarvis trades'. Stop it with:  jarvis unschedule")
+    return 0
+
+
 def make_desk(cfg):
     from jarvis_core.trading import TradingDesk
     return TradingDesk(cfg, notify=lambda m: print(f"\n*** {m}\n"))
@@ -180,6 +307,10 @@ def main(argv=None):
     p.add_argument("args", nargs="*")
     p.add_argument("--limit", type=float, default=None, help="limit price for buy/sell")
     p.add_argument("--every", type=int, default=15, help="dashboard refresh seconds")
+    p.add_argument("--capital", type=float, default=100.0, help="backtest starting money")
+    p.add_argument("--start", default="2011-01-01", help="backtest start date")
+    p.add_argument("--years", action="store_true", help="backtest: show year-by-year returns")
+    p.add_argument("--refresh", action="store_true", help="backtest: re-download prices")
     p.add_argument("--debug", action="store_true")
     a = p.parse_args(argv)
     cfg = load_config()
@@ -251,6 +382,17 @@ def main(argv=None):
                     r = json.loads(line)
                     print(f"{r['time']}  [{r['mode']}]  {r['side']} {r['quantity'] or ('$' + str(r['dollars']))} "
                           f"{r['symbol']}  ->  {r['result']}")
+        elif cmd == "backtest":
+            return backtest_cmd(a.capital, a.start, a.years, a.refresh)
+        elif cmd in ("strategy", "strategies"):
+            return strategy_cmd(desk, words)
+        elif cmd == "autotrade":
+            print(time.strftime("[%Y-%m-%d %H:%M] autotrade"))
+            return autotrade_cmd(desk)
+        elif cmd == "schedule":
+            return schedule_cmd(words[0] if words else "16:15")
+        elif cmd == "unschedule":
+            return schedule_cmd(remove=True)
         elif cmd in ("connect", "link"):
             return connect(cfg)
         elif cmd == "login":

@@ -23,6 +23,7 @@ Say **"Jarvis"**, ask anything, and hear a calm, natural voice reply.
 5. Start it: **`start_jarvis.bat`** (or `jarvis` in a bash terminal after `bash setup.sh`).
 6. Trading: `jarvis portfolio`, `jarvis quote TSLA`, `jarvis buy 5 AAPL` (paper money by default).
    To link Robinhood, run `jarvis connect` (details in Step 8 of the guide).
+7. Strategies: `jarvis backtest`, `jarvis strategy use trend_tqqq`, `jarvis schedule` (paper autotrade, Step 9).
 
 **New to this? Follow [SETUP_GUIDE.md](SETUP_GUIDE.md).** It walks through every step,
 with a test after each one and fixes for common errors.
