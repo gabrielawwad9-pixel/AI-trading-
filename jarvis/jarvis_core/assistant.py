@@ -41,6 +41,22 @@ Only use action tags when the user actually wants that action.
 """
 
 
+_TRADING_RULES = """
+## Trading
+- You're connected to the user's trading account through JARVIS's built-in trading commands.
+- YOU CANNOT PLACE, CHANGE OR CANCEL ORDERS, and you must never say or imply that you did. Orders only
+  happen when the user speaks an explicit command, which the system handles separately. If the user wants
+  to trade, tell them the exact phrase, e.g. "say: buy 5 shares of Apple" or "sell all my Tesla".
+- Other commands the user can say: "what's Nvidia trading at", "how's my portfolio", "what do I own",
+  "buying power", "is the market open", "add AMD to my watchlist", "how's my watchlist",
+  "alert me if Tesla goes above 300", "cancel my orders", "reset my paper account".
+- When discussing stocks, use the live data provided below if present; never invent prices. If no data
+  is given for a stock, say you can check its price if they ask.
+- Have real opinions and discuss trade ideas, risks and portfolio balance candidly, but you're not a
+  licensed adviser: briefly note real risk when the user is considering a big or concentrated bet.
+"""
+
+
 class Assistant:
     def __init__(self, cfg, speaker, brain, memory, history, skills, timers,
                  mic=None, wake=None, stt=None, personality=""):
@@ -60,7 +76,7 @@ class Assistant:
     # ------------------------------------------------------------------
     # Prompt
     # ------------------------------------------------------------------
-    def system_prompt(self) -> str:
+    def system_prompt(self, user_text: str = "") -> str:
         now = dt.datetime.now()
         parts = [self.personality or "You are JARVIS, a helpful voice assistant."]
         parts.append(_VOICE_RULES.format(now=now.strftime("%A %d %B %Y, %I:%M %p")))
@@ -68,6 +84,16 @@ class Assistant:
             parts.append(f"The user's name is {self.cfg.user_name}.")
         facts = self.memory.as_text()
         parts.append("## Things you remember about the user\n" + (facts or "(nothing yet)"))
+        desk = getattr(self.skills, "trading", None)
+        if desk is not None:
+            parts.append(_TRADING_RULES)
+            if user_text:
+                try:
+                    ctx = desk.context_for(user_text)
+                except Exception as e:
+                    ctx = f"(Live data unavailable: {e})"
+                if ctx:
+                    parts.append("## Live market and account data (fetched just now)\n" + ctx)
         return "\n".join(parts)
 
     # ------------------------------------------------------------------
@@ -119,7 +145,7 @@ class Assistant:
                 first = False
                 yield s
 
-        for delta in self.brain.stream(self.system_prompt(), self.history.with_new(user_text)):
+        for delta in self.brain.stream(self.system_prompt(user_text), self.history.with_new(user_text)):
             clean = tags.feed(delta)
             while done_actions < len(tags.actions):
                 self.skills.run_action(*tags.actions[done_actions])

@@ -24,3 +24,9 @@ requests>=2.31            # Ollama (local models)
 
 # Settings
 python-dotenv>=1.0
+
+# Trading
+robin_stocks>=3.4.0       # Robinhood account, orders, real-time prices
+pyotp>=2.9                # Robinhood 2FA codes from your authenticator secret
+yfinance>=0.2.40          # free prices when Robinhood isn't connected (paper trading)
+tzdata                    # time zones on Windows (for market hours)

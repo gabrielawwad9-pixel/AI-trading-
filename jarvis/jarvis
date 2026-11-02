@@ -8,6 +8,10 @@
 #   jarvis memory          show what JARVIS remembers about you
 #   jarvis personality     edit personality.txt
 #   jarvis settings        edit .env
+#
+#   Trading:  jarvis portfolio | positions | cash | market | quote AAPL | buy 5 AAPL | sell all TSLA
+#             jarvis watch [add|remove SYM] | alerts | alert TSLA above 300 | dashboard | trades
+#             jarvis login (Robinhood) | mode | paper reset          (full list: jarvis trade-help)
 
 # Follow the symlink back to the real JARVIS folder.
 SOURCE="${BASH_SOURCE[0]}"
@@ -37,6 +41,9 @@ case "$1" in
   memory)         if [ -f memory.json ]; then cat memory.json; else echo "JARVIS doesn't remember anything yet."; fi ;;
   personality)    exec "$EDITOR_CMD" personality.txt ;;
   settings|env)   exec "$EDITOR_CMD" .env ;;
-  help|-h|--help) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//' ;;
+  quote|price|quotes|portfolio|account|summary|positions|holdings|cash|buying-power|bp|market|buy|sell|orders|watch|watchlist|alert|alerts|dashboard|dash|ticker|trades|history|log|login|mode|paper)
+                  exec "$PY" trade.py "$@" ;;
+  trade-help)     exec "$PY" trade.py help ;;
+  help|-h|--help) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//' ;;
   *)              exec "$PY" jarvis.py "$@" ;;
 esac

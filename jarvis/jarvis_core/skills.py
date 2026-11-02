@@ -359,9 +359,10 @@ def normalize(text: str) -> str:
 
 
 class Skills:
-    def __init__(self, memory, timers: Timers, launcher=None):
+    def __init__(self, memory, timers: Timers, launcher=None, trading=None):
         self.memory = memory
         self.timers = timers
+        self.trading = trading       # TradingDesk, or None if trading is switched off
         self.launcher = launcher     # tests swap this for a fake so nothing really opens
         self.pending = None          # follow-up question we asked, e.g. ("timer", None)
 
@@ -370,6 +371,12 @@ class Skills:
         t = normalize(text)
         if not t:
             return None
+
+        # A trade waiting for "yes"/"confirm order" always gets first say
+        if self.trading is not None and self.trading.pending is not None:
+            reply = self.trading.confirm(t)
+            if reply is not None:
+                return reply
 
         # Follow-ups to questions we just asked
         if self.pending:
@@ -425,6 +432,11 @@ class Skills:
             fact = to_third_person(m.group(1))
             self.memory.add(fact)
             return "Got it. I'll remember that."
+
+        if self.trading is not None:
+            reply = self.trading.handle(t, text)
+            if reply:
+                return reply
 
         m = _SEARCH_RE.match(t)
         if m:

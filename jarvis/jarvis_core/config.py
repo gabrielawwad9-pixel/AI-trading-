@@ -15,6 +15,10 @@ def _load_env_file():
     except ImportError:
         return
     load_dotenv(env_path, override=False)
+    # The trading bot's .env (one folder up) can hold the Robinhood login, so you only enter it once.
+    parent_env = ROOT.parent / ".env"
+    if parent_env.exists():
+        load_dotenv(parent_env, override=False)
 
 
 def _get(name, default=""):
@@ -78,6 +82,16 @@ class Config:
     voice_interrupt_level: float
     # You
     user_name: str
+    # Trading
+    trading_enabled: bool
+    trading_mode: str
+    max_order_usd: float
+    paper_starting_cash: float
+    market_data: str
+    alert_check_seconds: float
+    robinhood_username: str
+    robinhood_password: str
+    robinhood_totp: str
     # Files
     personality_file: Path
     memory_file: Path
@@ -112,6 +126,15 @@ def load_config() -> Config:
         interrupt_mode=_get("INTERRUPT_MODE", "both").lower(),
         voice_interrupt_level=_get_float("VOICE_INTERRUPT_LEVEL", 2500),
         user_name=_get("USER_NAME", ""),
+        trading_enabled=_get("TRADING", "on").lower() in ("on", "true", "yes", "1"),
+        trading_mode="live" if _get("TRADING_MODE", "paper").lower() == "live" else "paper",
+        max_order_usd=_get_float("MAX_ORDER_USD", 500),
+        paper_starting_cash=_get_float("PAPER_STARTING_CASH", 10000),
+        market_data=_get("MARKET_DATA", "auto").lower(),
+        alert_check_seconds=max(15.0, _get_float("ALERT_CHECK_SECONDS", 60)),
+        robinhood_username=_get("ROBINHOOD_USERNAME", ""),
+        robinhood_password=os.getenv("ROBINHOOD_PASSWORD", "").strip(),
+        robinhood_totp=_get("ROBINHOOD_TOTP_SECRET", ""),
         personality_file=ROOT / "personality.txt",
         memory_file=ROOT / _get("MEMORY_FILE", "memory.json"),
     )

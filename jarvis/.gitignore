@@ -5,3 +5,7 @@ memory.*.json
 memory.tmp
 voices/
 __pycache__/
+paper_account.json
+trading_state.json
+trade_log.jsonl
+*.tmp

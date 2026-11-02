@@ -98,8 +98,20 @@ def main():
 
         from jarvis_core.assistant import Assistant
         timers = Timers()
+
+        desk = None
+        if cfg.trading_enabled:
+            current = "trading"
+            from jarvis_core.trading import TradingDesk
+            step(f"Opening trading desk ({cfg.trading_mode})")
+            desk = TradingDesk(cfg, notify=timers.announcements.put)
+            if desk.state["alerts"]:
+                desk.start_alerts()
+            ok(("LIVE - real money" if cfg.trading_mode == "live" else "paper money")
+               + f", prices from {desk.data.name}")
+
         assistant = Assistant(
-            cfg, speaker, brain, memory, ConversationHistory(), Skills(memory, timers), timers,
+            cfg, speaker, brain, memory, ConversationHistory(), Skills(memory, timers, trading=desk), timers,
             mic=mic, wake=wake, stt=stt, personality=personality,
         )
     except KeyboardInterrupt:

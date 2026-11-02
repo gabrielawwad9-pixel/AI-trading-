@@ -327,6 +327,79 @@ mornings"), the AI may quietly save it to `memory.json`.
 
 ---
 
+## Step 8: Trading (your Robinhood account)
+
+JARVIS works with your stock trading bot. **It starts in paper mode**: a practice account with
+$10,000 of pretend money and real prices. Play with it as much as you like; nothing real happens.
+
+### Things to say (or type in `jarvis chat`)
+
+| You say | What happens |
+|---|---|
+| "What's Tesla trading at?" / "Price of AAPL" | Current price and today's move |
+| "How's my portfolio doing?" | Account value, today's gain/loss, biggest movers |
+| "What do I own?" / "What's my buying power?" | Your positions / available cash |
+| "Is the market open?" | Market hours (US Eastern) |
+| "Buy 5 shares of Apple" / "Buy $100 of Nvidia" | Prepares the order, reads it back, waits for you |
+| "Sell all my Tesla" / "Sell 2 Tesla at 300" | Market or limit sell |
+| "Yes" (paper) / **"Confirm order"** (live) | Places the order you were just asked about |
+| "Add AMD to my watchlist" / "How's my watchlist?" | Watchlist with live prices |
+| "Alert me if Tesla goes above 300" | JARVIS speaks up when it happens (while running) |
+| "Cancel my orders" / "Reset my paper account" | As it says |
+| "Should I trim my Apple position?" | A real discussion using your actual holdings |
+
+### The same things as terminal commands
+
+```bash
+jarvis portfolio          jarvis positions         jarvis cash          jarvis market
+jarvis quote AAPL TSLA    jarvis buy 5 AAPL        jarvis buy '$100' NVDA
+jarvis sell all TSLA      jarvis sell 2 TSLA --limit 300
+jarvis watch add AMD      jarvis watch             jarvis alert TSLA above 300
+jarvis dashboard          # live screen of your account + watchlist, refreshes every 15s
+jarvis trades             # every order JARVIS has placed
+jarvis mode               jarvis paper reset       jarvis orders cancel
+```
+
+(On Windows without bash, use `trade.bat portfolio`, `trade.bat buy 5 AAPL`, etc.)
+In bash, put dollar amounts in single quotes (`'$100'`), or bash will treat `$1` as a variable.
+
+### Connecting Robinhood
+
+1. Put your login in `.env` (`jarvis settings`), **or** in the trading bot's `.env` one folder up.
+   JARVIS reads both, so you only need it in one place:
+   ```
+   ROBINHOOD_USERNAME=you@example.com
+   ROBINHOOD_PASSWORD=your-password
+   ROBINHOOD_TOTP_SECRET=        # only if you use an authenticator app: the SETUP secret, not a 6-digit code
+   ```
+2. Run **`jarvis login`** in the terminal. If Robinhood texts you a code or asks you to approve the login
+   in the app, do it then. Robinhood remembers the login for a while, so JARVIS can use it in voice mode.
+3. Check it worked: `jarvis portfolio`. Prices now come from Robinhood (real time), but you're
+   **still in paper mode**.
+
+### Turning on real-money trading (only when you're ready)
+
+In `.env` set:
+```
+TRADING_MODE=live
+MAX_ORDER_USD=500        # JARVIS refuses any single order bigger than this
+```
+
+Safety rules that are always on in live mode:
+- Every order is read back first. By voice you must say **"confirm order"** ("yes" isn't enough);
+  in the terminal you must type **yes**. Anything else cancels it.
+- Orders over `MAX_ORDER_USD` are refused, and you can't sell more shares than you own.
+- An order you don't confirm within 2 minutes expires.
+- **The AI can never place trades.** Only your explicit "buy…/sell…" commands can. When you discuss
+  stocks with it, it can only talk.
+- Every order is written to `trade_log.jsonl` (`jarvis trades` shows it).
+
+> **Be careful:** speech recognition can mishear numbers ("fifteen" vs "fifty"). Always listen
+> to the read-back before confirming. Start with tiny orders, and remember your Robinhood password sits
+> in `.env` on this laptop. Keep that file private. JARVIS's opinions aren't financial advice.
+
+---
+
 ## Privacy: what stays on your laptop?
 
 | Part | Where it runs |
@@ -336,6 +409,7 @@ mornings"), the AI may quietly save it to `memory.json`.
 | Brain | **Claude:** the text of what you say (after "Jarvis") goes to Anthropic. **Ollama:** on your laptop |
 | Voice | **edge-tts:** JARVIS's reply text goes to Microsoft to make the audio. **Piper:** on your laptop |
 | Memory | `memory.json` on your laptop (and its contents go to the brain as context) |
+| Trading | Prices come from Robinhood or Yahoo Finance. Orders go to Robinhood (live mode only). When you ask the AI about stocks, a summary of your holdings is sent to the brain |
 
 For a **completely offline** JARVIS, use `LLM_PROVIDER=ollama` and `TTS_ENGINE=piper`.
 
