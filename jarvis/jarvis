@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# The 'jarvis' terminal command.
+#   jarvis                 start the voice assistant
+#   jarvis chat            type to JARVIS in the terminal (it still talks back)
+#   jarvis chat --quiet    type, and read replies silently
+#   jarvis check mic       run a test (mic, voice, wake, stt, brain, interrupt, all)
+#   jarvis setup           (re)install everything
+#   jarvis memory          show what JARVIS remembers about you
+#   jarvis personality     edit personality.txt
+#   jarvis settings        edit .env
+
+# Follow the symlink back to the real JARVIS folder.
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+cd -P "$(dirname "$SOURCE")" || exit 1
+
+if [ -x .venv/Scripts/python.exe ]; then PY=.venv/Scripts/python.exe
+elif [ -x .venv/bin/python ]; then PY=.venv/bin/python
+else
+  [ "$1" = "setup" ] || { echo "[X] JARVIS isn't set up yet. Running setup first..."; }
+  exec bash setup.sh
+fi
+
+export PYTHONUNBUFFERED=1 PYTHONIOENCODING=utf-8
+EDITOR_CMD="${EDITOR:-nano}"
+command -v "$EDITOR_CMD" >/dev/null || EDITOR_CMD="notepad"
+
+case "$1" in
+  ""|voice|start) shift; exec "$PY" jarvis.py "$@" ;;
+  chat|text)      shift; exec "$PY" jarvis.py --text "$@" ;;
+  check|test)     shift; exec "$PY" check.py "$@" ;;
+  setup|update)   exec bash setup.sh ;;
+  memory)         if [ -f memory.json ]; then cat memory.json; else echo "JARVIS doesn't remember anything yet."; fi ;;
+  personality)    exec "$EDITOR_CMD" personality.txt ;;
+  settings|env)   exec "$EDITOR_CMD" .env ;;
+  help|-h|--help) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *)              exec "$PY" jarvis.py "$@" ;;
+esac

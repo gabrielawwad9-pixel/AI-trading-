@@ -10,6 +10,47 @@ you'll already know which parts work.
 
 ---
 
+## Using a bash terminal (MSYS2 UCRT64 / Git Bash)?
+
+If you prefer a terminal like MSYS2 or Git Bash to double-clicking files, do this instead of Steps 2, 3, and 6.
+You still need **Step 1**: install Windows Python 3.12 from python.org. MSYS2's own `pacman`
+Python **won't work**, because the speech packages don't support it. The setup script finds the
+Windows Python for you.
+
+```bash
+# 1. Get the code (MSYS2 users: if 'git' isn't found, run  pacman -S git  first)
+cd ~
+git clone -b claude/robinhood-trading-ndmzv3 https://github.com/gabrielawwad9-pixel/ai-trading-.git
+cd ai-trading-/jarvis
+
+# 2. Install everything (5-10 minutes)
+bash setup.sh
+
+# 3. Add your Claude API key (Ctrl+O, Enter to save; Ctrl+X to exit)
+nano .env
+
+# 4. Close and reopen the terminal, then test each part:
+jarvis check mic
+jarvis check voice
+jarvis check wake
+jarvis check stt
+jarvis check brain
+jarvis check interrupt
+
+# 5. Run it
+jarvis            # voice mode: say "Jarvis"
+jarvis chat       # type to JARVIS instead
+```
+
+Other commands: `jarvis memory` (what it remembers), `jarvis personality` (edit its personality),
+`jarvis settings` (edit `.env`), `jarvis setup` (reinstall/update), `jarvis help`.
+
+If `git clone` asks for a password, GitHub needs a **personal access token** rather than your
+password. Or download the ZIP from GitHub in your browser instead, and `cd` into the extracted
+`jarvis` folder (e.g. `cd /c/Users/Gabri/Downloads/ai-trading-.../jarvis`).
+
+---
+
 ## What you need
 
 - A Windows 10 or 11 laptop with a working microphone (the built-in Dell mic is fine; a headset is better).
