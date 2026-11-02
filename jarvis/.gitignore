@@ -1,0 +1,7 @@
+.env
+.venv/
+memory.json
+memory.*.json
+memory.tmp
+voices/
+__pycache__/

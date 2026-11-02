@@ -37,3 +37,9 @@ python -m trading_bot.cli sell AAPL 1 --live --limit-price 150.00
 - This code places real financial orders when run with `--live`. Test with
   small quantities first and understand Robinhood's order types before
   relying on it.
+
+## JARVIS voice assistant
+
+The [`jarvis/`](jarvis/) folder contains a separate project: a Windows voice assistant
+(wake word, local speech recognition, Claude/Ollama brain, natural voice, memory).
+See [jarvis/SETUP_GUIDE.md](jarvis/SETUP_GUIDE.md).

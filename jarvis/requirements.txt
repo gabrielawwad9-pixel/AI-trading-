@@ -1,0 +1,26 @@
+# JARVIS voice assistant - Python packages
+# Installed automatically by setup.bat. Tested with Python 3.11 / 3.12 on Windows 10/11.
+
+# Wake word ("Jarvis") - offline
+openwakeword==0.6.0
+onnxruntime>=1.17,<2
+
+# Speech-to-text - offline
+faster-whisper>=1.0.3
+
+# Microphone + speakers
+sounddevice>=0.4.6
+numpy>=1.24
+scipy>=1.10
+
+# Voice (text-to-speech)
+edge-tts>=6.1.12          # natural online voice (default)
+miniaudio>=1.59           # decodes edge-tts audio
+piper-tts>=1.2.0          # offline voice (used if TTS_ENGINE=piper or the internet is down)
+
+# Brain
+anthropic>=0.40           # Claude API
+requests>=2.31            # Ollama (local models)
+
+# Settings
+python-dotenv>=1.0
