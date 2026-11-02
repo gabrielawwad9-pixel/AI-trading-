@@ -357,7 +357,7 @@ jarvis sell all TSLA      jarvis sell 2 TSLA --limit 300
 jarvis watch add AMD      jarvis watch             jarvis alert TSLA above 300
 jarvis dashboard          # live screen of your account + watchlist, refreshes every 15s
 jarvis trades             # every order JARVIS has placed
-jarvis mode               jarvis paper reset       jarvis orders cancel
+jarvis connect            jarvis mode              jarvis paper reset       jarvis orders cancel
 ```
 
 (On Windows without bash, use `trade.bat portfolio`, `trade.bat buy 5 AAPL`, etc.)
@@ -365,17 +365,21 @@ In bash, put dollar amounts in single quotes (`'$100'`), or bash will treat `$1`
 
 ### Connecting Robinhood
 
-1. Put your login in `.env` (`jarvis settings`), **or** in the trading bot's `.env` one folder up.
-   JARVIS reads both, so you only need it in one place:
-   ```
-   ROBINHOOD_USERNAME=you@example.com
-   ROBINHOOD_PASSWORD=your-password
-   ROBINHOOD_TOTP_SECRET=        # only if you use an authenticator app: the SETUP secret, not a 6-digit code
-   ```
-2. Run **`jarvis login`** in the terminal. If Robinhood texts you a code or asks you to approve the login
-   in the app, do it then. Robinhood remembers the login for a while, so JARVIS can use it in voice mode.
-3. Check it worked: `jarvis portfolio`. Prices now come from Robinhood (real time), but you're
-   **still in paper mode**.
+Run this in your terminal on your laptop:
+
+```bash
+jarvis connect
+```
+
+It asks for your Robinhood email and password (the password is hidden as you type), and asks if you use
+an authenticator app. It saves them to `.env` on your laptop, logs in, and shows your real account
+value, buying power and positions. If Robinhood texts you a code or asks you to approve the login in its
+app, do it when prompted. Robinhood then remembers the login for a while, so JARVIS can use it in voice mode.
+
+You're **still in paper mode** after connecting, but JARVIS can now see your real account
+("how's my portfolio?") and uses Robinhood's real-time prices.
+
+If the login expires later, run `jarvis login`. To change the saved details, run `jarvis connect` again.
 
 ### Turning on real-money trading (only when you're ready)
 

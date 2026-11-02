@@ -12,7 +12,8 @@
     jarvis alerts                     list price alerts     (jarvis alert TSLA above 300 / jarvis alerts cancel)
     jarvis dashboard                  live-updating screen of your portfolio + watchlist (Ctrl+C to stop)
     jarvis trades                     history of orders JARVIS has placed
-    jarvis login                      log in to Robinhood (do this once; approve on your phone if asked)
+    jarvis connect                    link your Robinhood account (asks for your login, saves it, logs in)
+    jarvis login                      log in to Robinhood again (approve on your phone if asked)
     jarvis mode                       paper or live?
     jarvis paper reset                start the paper account over
 """
@@ -24,6 +25,86 @@ import time
 
 from jarvis_core.config import load_config
 from jarvis_core.errors import FriendlyError, report
+
+
+def set_env_values(path, values: dict):
+    """Update KEY=value lines in a .env file (adding any that are missing), keeping everything else."""
+    from pathlib import Path
+    path = Path(path)
+    if not path.exists():
+        example = path.with_name(".env.example")
+        path.write_text(example.read_text(encoding="utf-8") if example.exists() else "", encoding="utf-8")
+    lines = path.read_text(encoding="utf-8").splitlines()
+    done = set()
+    for i, line in enumerate(lines):
+        key = line.split("=", 1)[0].strip()
+        if "=" in line and not line.lstrip().startswith("#") and key in values:
+            lines[i] = f"{key}={_env_quote(values[key])}"
+            done.add(key)
+    for key, val in values.items():
+        if key not in done:
+            lines.append(f"{key}={_env_quote(val)}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _env_quote(value: str) -> str:
+    if value == "":
+        return ""
+    if "'" not in value:
+        return f"'{value}'"                       # single quotes: taken literally (safe for # $ spaces)
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def connect(cfg):
+    import getpass
+    import os
+    from jarvis_core.config import ROOT
+    from jarvis_core.trading import RobinhoodBroker, friendly, money, pct_phrase
+
+    print("Link your Robinhood account")
+    print("-" * 40)
+    print("Your login is saved ONLY in the .env file in this folder on this laptop, and is only")
+    print("ever sent to Robinhood. JARVIS stays in PAPER mode until you choose live trading.\n")
+    user = input(f"Robinhood email{f' [{cfg.robinhood_username}]' if cfg.robinhood_username else ''}: ").strip()
+    user = user or cfg.robinhood_username
+    try:
+        pw = getpass.getpass("Robinhood password (hidden as you type, then press Enter): ")
+    except Exception:
+        pw = input("Robinhood password: ")
+    if not user or not pw:
+        print("Cancelled - email and password are both needed.")
+        return 1
+    print("\nDo you use an authenticator app (like Google Authenticator) for Robinhood 2FA?")
+    print("If so, paste the SETUP SECRET (the long code shown when you set it up - not the 6-digit")
+    print("code). If you get texts or approve logins in the Robinhood app, just press Enter.")
+    totp = input("Authenticator secret (or Enter to skip): ").strip().replace(" ", "")
+
+    env_path = ROOT / ".env"
+    set_env_values(env_path, {"ROBINHOOD_USERNAME": user, "ROBINHOOD_PASSWORD": pw,
+                              "ROBINHOOD_TOTP_SECRET": totp})
+    print(f"\n[OK] Saved to {env_path}")
+
+    print("\nLogging in to Robinhood... if it asks for a code, or to approve the login in the")
+    print("Robinhood app on your phone, do that now.\n")
+    broker = RobinhoodBroker(user, pw, totp)
+    broker.rh()
+    print("[OK] Logged in!\n")
+    snap = broker.snapshot()
+    print(f"Account value:  {money(snap.total)}   (today {money(snap.day_change)})")
+    print(f"Buying power:   {money(snap.cash)}")
+    if snap.positions:
+        print("Positions:")
+        for p in sorted(snap.positions, key=lambda p: p.value, reverse=True):
+            print(f"  {p.symbol:6} {p.quantity:>10.4g} shares  {money(p.value):>12}  "
+                  f"{pct_phrase(p.total_gain_pct)} overall   {friendly(p.symbol)}")
+    else:
+        print("Positions:      none")
+    mode = os.getenv("TRADING_MODE", cfg.trading_mode)
+    print(f"\nJARVIS can now see your account and uses Robinhood's real-time prices.")
+    if mode != "live":
+        print("You're still in PAPER mode: 'buy'/'sell' use practice money. To trade for real, run")
+        print("  jarvis settings   and set TRADING_MODE=live (and check MAX_ORDER_USD).")
+    return 0
 
 
 def make_desk(cfg):
@@ -170,6 +251,8 @@ def main(argv=None):
                     r = json.loads(line)
                     print(f"{r['time']}  [{r['mode']}]  {r['side']} {r['quantity'] or ('$' + str(r['dollars']))} "
                           f"{r['symbol']}  ->  {r['result']}")
+        elif cmd in ("connect", "link"):
+            return connect(cfg)
         elif cmd == "login":
             print("Logging in to Robinhood... (if Robinhood asks for a code or app approval, do it now)")
             desk.robinhood.rh()
