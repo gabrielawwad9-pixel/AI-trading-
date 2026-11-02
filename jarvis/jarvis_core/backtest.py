@@ -123,7 +123,7 @@ class MomentumRotation(Strategy):
         ok = u > u.rolling(self.trend).mean()
         score = mom.where(ok)
         w = pd.DataFrame(0.0, index=u.index, columns=u.columns)
-        fridays = u.index.to_series().dt.weekday == 4
+        fridays = u.index.to_series().dt.day_of_week == 4
         current = None
         for day in u.index:
             if fridays[day] or current is None:
